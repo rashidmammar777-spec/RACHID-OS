@@ -39,6 +39,10 @@ export default function SignupPage() {
     setLoading(true);
 
     try {
+      if (!supabase) {
+        throw new Error('Authentication service is not available. Please check your configuration.');
+      }
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
