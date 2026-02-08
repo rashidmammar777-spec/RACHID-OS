@@ -7,6 +7,12 @@ const inter = Inter({ subsets: ['latin'] });
 export const metadata: Metadata = {
   title: 'Focus - Your Operating System for Life',
   description: 'An operating system for ambitious entrepreneurs and professionals. Plan, execute, and review your goals with AI-powered intelligence.',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Focus',
+  },
   openGraph: {
     images: [
       {
