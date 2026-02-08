@@ -85,7 +85,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="p-6 border-b border-slate-200">
             <Link href="/dashboard" className="flex items-center space-x-2">
               <Brain className="h-8 w-8 text-blue-600" />
-              <span className="text-xl font-bold text-slate-900">RACHID OS</span>
+              <span className="text-xl font-bold text-slate-900">Focus</span>
             </Link>
           </div>
 

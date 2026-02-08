@@ -129,7 +129,7 @@ export default function OnboardingPage() {
             <div className="mx-auto mb-4">
               <CheckCircle className="h-20 w-20 text-green-500" />
             </div>
-            <CardTitle className="text-3xl">Welcome to RACHID OS!</CardTitle>
+            <CardTitle className="text-3xl">Welcome to Focus!</CardTitle>
             <CardDescription className="text-lg">
               Your departments are set up. Let&apos;s start building your best life.
             </CardDescription>
@@ -144,7 +144,7 @@ export default function OnboardingPage() {
       <div className="max-w-4xl mx-auto py-8">
         <div className="mb-8">
           <div className="flex items-center justify-between mb-2">
-            <h1 className="text-2xl font-bold text-slate-900">Welcome to RACHID OS</h1>
+            <h1 className="text-2xl font-bold text-slate-900">Welcome to Focus</h1>
             <Badge variant="secondary">
               Step {step + 1} of {totalSteps}
             </Badge>
@@ -224,7 +224,7 @@ export default function OnboardingPage() {
                 Department
               </CardTitle>
               <CardDescription>
-                Help RACHID OS understand what this area means to you. Be specific about your vision
+                Help Focus understand what this area means to you. Be specific about your vision
                 and values.
               </CardDescription>
             </CardHeader>

@@ -10,7 +10,7 @@ export default function Home() {
         <nav className="flex justify-between items-center">
           <div className="flex items-center space-x-2">
             <Brain className="h-8 w-8 text-blue-600" />
-            <span className="text-2xl font-bold text-slate-900">RACHID OS</span>
+            <span className="text-2xl font-bold text-slate-900">Focus</span>
           </div>
           <div className="space-x-4">
             <Button variant="ghost" asChild>
@@ -29,7 +29,7 @@ export default function Home() {
             Your Digital CEO for Life
           </h1>
           <p className="text-xl text-slate-600 mb-8 leading-relaxed">
-            RACHID OS is an operating system for ambitious entrepreneurs and professionals.
+            Focus is an operating system for ambitious entrepreneurs and professionals.
             Plan, execute, and review your goals with AI-powered intelligence that acts as
             your personal chief executive for life management.
           </p>
@@ -121,7 +121,7 @@ export default function Home() {
             Stop Planning. Start Executing.
           </h2>
           <p className="text-xl text-slate-600 mb-8">
-            Join ambitious professionals who have taken control of their lives with RACHID OS.
+            Join ambitious professionals who have taken control of their lives with Focus.
             Your digital CEO is waiting.
           </p>
           <Button size="lg" asChild>
@@ -132,7 +132,7 @@ export default function Home() {
 
       <footer className="border-t mt-20 py-8">
         <div className="container mx-auto px-4 text-center text-slate-600">
-          <p>RACHID OS - Your Operating System for Life</p>
+          <p>Focus - Your Operating System for Life</p>
         </div>
       </footer>
     </div>

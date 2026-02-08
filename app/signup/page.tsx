@@ -70,7 +70,7 @@ export default function SignupPage() {
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold text-center">Create Account</CardTitle>
           <CardDescription className="text-center">
-            Start your journey with RACHID OS
+            Start your journey with Focus
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSignup}>
