@@ -12,7 +12,6 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Briefcase, Heart, DollarSign, Dumbbell, GraduationCap, Users, Plus, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -34,13 +33,13 @@ interface Department {
   created_at: string;
 }
 
-const DEPARTMENT_OPTIONS = [
-  { name: 'Career', icon: 'Briefcase' },
-  { name: 'Health & Fitness', icon: 'Dumbbell' },
-  { name: 'Finance', icon: 'DollarSign' },
-  { name: 'Relationships', icon: 'Heart' },
-  { name: 'Learning & Growth', icon: 'GraduationCap' },
-  { name: 'Social Life', icon: 'Users' },
+const DEPARTMENT_SUGGESTIONS = [
+  { name: 'Career', icon: Briefcase },
+  { name: 'Health & Fitness', icon: Dumbbell },
+  { name: 'Finance', icon: DollarSign },
+  { name: 'Relationships', icon: Heart },
+  { name: 'Learning & Growth', icon: GraduationCap },
+  { name: 'Social Life', icon: Users },
 ];
 
 export default function DepartmentsPage() {
@@ -84,7 +83,7 @@ export default function DepartmentsPage() {
 
   const handleCreateDepartment = async () => {
     if (!formData.name.trim()) {
-      toast.error('Please select a department name');
+      toast.error('Please enter a department name');
       return;
     }
 
@@ -196,68 +195,89 @@ export default function DepartmentsPage() {
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
-            <DialogTitle>Create Department</DialogTitle>
+            <DialogTitle className="text-xl">Create Your Department</DialogTitle>
             <DialogDescription>
-              Add a new department to organize an area of your life
+              Name the area of your life you want to organize and track
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Department Name</Label>
-              <Select
-                value={formData.name}
-                onValueChange={(value) => setFormData({ ...formData, name: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a department" />
-                </SelectTrigger>
-                <SelectContent>
-                  {DEPARTMENT_OPTIONS.map((dept) => (
-                    <SelectItem key={dept.name} value={dept.name}>
-                      {dept.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="vision">Vision</Label>
-              <Textarea
-                id="vision"
-                placeholder="What is your vision for this area?"
-                value={formData.vision}
-                onChange={(e) => setFormData({ ...formData, vision: e.target.value })}
-                rows={3}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="purpose">Purpose</Label>
-              <Textarea
-                id="purpose"
-                placeholder="Why is this area important to you?"
-                value={formData.purpose}
-                onChange={(e) => setFormData({ ...formData, purpose: e.target.value })}
-                rows={3}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="values">Core Values</Label>
+          <div className="space-y-6 py-4">
+            <div className="space-y-3">
+              <Label htmlFor="name" className="text-base font-semibold">
+                Department Name
+              </Label>
               <Input
-                id="values"
-                placeholder="Enter values separated by commas"
-                value={formData.values}
-                onChange={(e) => setFormData({ ...formData, values: e.target.value })}
+                id="name"
+                placeholder="e.g., Career, Personal Projects, Hobbies..."
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="text-lg h-12"
+                autoFocus
               />
-              <p className="text-xs text-slate-500">Example: Growth, Balance, Excellence</p>
+              <div className="space-y-2">
+                <p className="text-sm text-slate-600">Quick suggestions:</p>
+                <div className="flex flex-wrap gap-2">
+                  {DEPARTMENT_SUGGESTIONS.map((suggestion) => {
+                    const Icon = suggestion.icon;
+                    const isSelected = formData.name === suggestion.name;
+                    return (
+                      <Button
+                        key={suggestion.name}
+                        type="button"
+                        variant={isSelected ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setFormData({ ...formData, name: suggestion.name })}
+                        className="h-9"
+                      >
+                        <Icon className="h-4 w-4 mr-2" />
+                        {suggestion.name}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t pt-4 space-y-4">
+              <p className="text-sm font-medium text-slate-700">Optional: Add more details</p>
+              <div className="space-y-2">
+                <Label htmlFor="vision" className="text-sm">Vision</Label>
+                <Textarea
+                  id="vision"
+                  placeholder="What is your vision for this area?"
+                  value={formData.vision}
+                  onChange={(e) => setFormData({ ...formData, vision: e.target.value })}
+                  rows={2}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="purpose" className="text-sm">Purpose</Label>
+                <Textarea
+                  id="purpose"
+                  placeholder="Why is this area important to you?"
+                  value={formData.purpose}
+                  onChange={(e) => setFormData({ ...formData, purpose: e.target.value })}
+                  rows={2}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="values" className="text-sm">Core Values</Label>
+                <Input
+                  id="values"
+                  placeholder="Enter values separated by commas"
+                  value={formData.values}
+                  onChange={(e) => setFormData({ ...formData, values: e.target.value })}
+                />
+                <p className="text-xs text-slate-500">Example: Growth, Balance, Excellence</p>
+              </div>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
               Cancel
             </Button>
-            <Button onClick={handleCreateDepartment} disabled={saving}>
+            <Button onClick={handleCreateDepartment} disabled={saving || !formData.name.trim()}>
               {saving ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
