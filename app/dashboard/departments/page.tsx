@@ -8,7 +8,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { Briefcase, Heart, DollarSign, Dumbbell, GraduationCap, Users, Plus } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Briefcase, Heart, DollarSign, Dumbbell, GraduationCap, Users, Plus, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 const ICON_MAP: Record<string, any> = {
   Career: Briefcase,
@@ -28,9 +34,26 @@ interface Department {
   created_at: string;
 }
 
+const DEPARTMENT_OPTIONS = [
+  { name: 'Career', icon: 'Briefcase' },
+  { name: 'Health & Fitness', icon: 'Dumbbell' },
+  { name: 'Finance', icon: 'DollarSign' },
+  { name: 'Relationships', icon: 'Heart' },
+  { name: 'Learning & Growth', icon: 'GraduationCap' },
+  { name: 'Social Life', icon: 'Users' },
+];
+
 export default function DepartmentsPage() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    vision: '',
+    purpose: '',
+    values: '',
+  });
   const supabase = createBrowserClient();
 
   useEffect(() => {
@@ -59,6 +82,41 @@ export default function DepartmentsPage() {
     }
   };
 
+  const handleCreateDepartment = async () => {
+    if (!formData.name.trim()) {
+      toast.error('Please select a department name');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { error } = await supabase.from('departments').insert({
+        user_id: user.id,
+        name: formData.name,
+        vision: formData.vision || null,
+        purpose: formData.purpose || null,
+        values: formData.values || null,
+      });
+
+      if (error) throw error;
+
+      toast.success('Department created successfully');
+      setDialogOpen(false);
+      setFormData({ name: '', vision: '', purpose: '', values: '' });
+      loadDepartments();
+    } catch (error: any) {
+      console.error('Error creating department:', error);
+      toast.error(error.message || 'Failed to create department');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -74,12 +132,12 @@ export default function DepartmentsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Departments</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Departments</h1>
           <p className="text-slate-600 mt-1">Manage the key areas of your life</p>
         </div>
-        <Button>
+        <Button className="w-full sm:w-auto" onClick={() => setDialogOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Add Department
         </Button>
@@ -93,7 +151,7 @@ export default function DepartmentsPage() {
             <p className="text-slate-600 mb-4">
               Create departments to organize different areas of your life
             </p>
-            <Button>Create Your First Department</Button>
+            <Button onClick={() => setDialogOpen(true)}>Create Your First Department</Button>
           </CardContent>
         </Card>
       ) : (
@@ -136,6 +194,82 @@ export default function DepartmentsPage() {
           })}
         </div>
       )}
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Create Department</DialogTitle>
+            <DialogDescription>
+              Add a new department to organize an area of your life
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Department Name</Label>
+              <Select
+                value={formData.name}
+                onValueChange={(value) => setFormData({ ...formData, name: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a department" />
+                </SelectTrigger>
+                <SelectContent>
+                  {DEPARTMENT_OPTIONS.map((dept) => (
+                    <SelectItem key={dept.name} value={dept.name}>
+                      {dept.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="vision">Vision</Label>
+              <Textarea
+                id="vision"
+                placeholder="What is your vision for this area?"
+                value={formData.vision}
+                onChange={(e) => setFormData({ ...formData, vision: e.target.value })}
+                rows={3}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="purpose">Purpose</Label>
+              <Textarea
+                id="purpose"
+                placeholder="Why is this area important to you?"
+                value={formData.purpose}
+                onChange={(e) => setFormData({ ...formData, purpose: e.target.value })}
+                rows={3}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="values">Core Values</Label>
+              <Input
+                id="values"
+                placeholder="Enter values separated by commas"
+                value={formData.values}
+                onChange={(e) => setFormData({ ...formData, values: e.target.value })}
+              />
+              <p className="text-xs text-slate-500">Example: Growth, Balance, Excellence</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateDepartment} disabled={saving}>
+              {saving ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                'Create Department'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

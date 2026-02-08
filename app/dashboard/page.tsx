@@ -148,21 +148,21 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">
             {format(new Date(), 'EEEE, MMMM d')}
           </h1>
           <p className="text-slate-600 mt-1">Your day at a glance</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={loadTodayPlan}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
+          <Button variant="outline" size="sm" onClick={loadTodayPlan} className="flex-1 sm:flex-initial">
+            <RefreshCw className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Refresh</span>
           </Button>
-          <Button variant="outline" size="sm">
-            <Download className="h-4 w-4 mr-2" />
-            Export PDF
+          <Button variant="outline" size="sm" className="flex-1 sm:flex-initial">
+            <Download className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Export PDF</span>
           </Button>
         </div>
       </div>
@@ -245,31 +245,33 @@ export default function DashboardPage() {
                     return (
                       <div
                         key={item.id}
-                        className={`flex items-center space-x-4 p-4 border rounded-lg transition-all ${
+                        className={`flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-4 border rounded-lg transition-all ${
                           isCompleted
                             ? 'bg-green-50 border-green-200'
                             : 'bg-white border-slate-200 hover:shadow-sm'
                         }`}
                       >
-                        <button
-                          onClick={() => toggleItemComplete(item.id, item.status)}
-                          className="flex-shrink-0"
-                        >
-                          {isCompleted ? (
-                            <CheckCircle2 className="h-6 w-6 text-green-600" />
-                          ) : (
-                            <Circle className="h-6 w-6 text-slate-400 hover:text-slate-600" />
-                          )}
-                        </button>
+                        <div className="flex items-center gap-3 sm:gap-4">
+                          <button
+                            onClick={() => toggleItemComplete(item.id, item.status)}
+                            className="flex-shrink-0"
+                          >
+                            {isCompleted ? (
+                              <CheckCircle2 className="h-6 w-6 text-green-600" />
+                            ) : (
+                              <Circle className="h-6 w-6 text-slate-400 hover:text-slate-600" />
+                            )}
+                          </button>
 
-                        <div className="flex items-center space-x-3 text-sm text-slate-600 flex-shrink-0">
-                          <Clock className="h-4 w-4" />
-                          <span className="font-medium">
-                            {formatTime(item.start_time)} - {formatTime(item.end_time)}
-                          </span>
+                          <div className="flex items-center space-x-2 text-sm text-slate-600">
+                            <Clock className="h-4 w-4" />
+                            <span className="font-medium whitespace-nowrap">
+                              {formatTime(item.start_time)} - {formatTime(item.end_time)}
+                            </span>
+                          </div>
                         </div>
 
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-0 pl-9 sm:pl-0">
                           <p
                             className={`font-medium ${
                               isCompleted ? 'text-slate-600 line-through' : 'text-slate-900'
@@ -282,7 +284,7 @@ export default function DashboardPage() {
                           </Badge>
                         </div>
 
-                        <Button variant="ghost" size="sm">
+                        <Button variant="ghost" size="sm" className="self-end sm:self-center">
                           <MoreVertical className="h-4 w-4" />
                         </Button>
                       </div>
