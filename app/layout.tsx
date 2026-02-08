@@ -8,10 +8,21 @@ export const metadata: Metadata = {
   title: 'Focus - Your Operating System for Life',
   description: 'An operating system for ambitious entrepreneurs and professionals. Plan, execute, and review your goals with AI-powered intelligence.',
   manifest: '/manifest.json',
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+  },
+  themeColor: '#111827',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
     title: 'Focus',
+  },
+  icons: {
+    icon: '/favicon.ico',
+    apple: '/apple-touch-icon.png',
   },
   openGraph: {
     images: [
