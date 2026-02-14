@@ -1,23 +1,35 @@
+// Importar el cliente de Supabase para operaciones en el servidor
 import { createServerClient } from "@/lib/supabase/server";
 
+// Definir el tipo de dato para un bloque de planificación
 type Block = {
   start: Date;
   end: Date;
   type: "STRUCTURAL" | "TASK";
-  taskId?: string; 
+  taskId?: string;
   label?: string;
 };
 
+/**
+ * Agente de Planificación Inteligente
+ *
+ * Este agente genera un plan diario para un usuario basado en su modo diario,
+ * su horario, sus tareas y su perfil de nutrición.
+ *
+ * @param userId - El ID del usuario para el cual generar el plan.
+ */
 export async function planningAgent(userId: string) {
+  // 1. INICIALIZACIÓN
+  // =========================
   const supabase = await createServerClient();
   const today = new Date();
   const dateString = today.toISOString().split("T")[0];
   const dayOfWeek = today.getDay();
 
+  // 2. MODO DIARIO (DAILY MODE)
+  // Determina el modo del usuario para el día (ej. estratégico, descanso).
+  // Si no existe, lo crea automáticamente.
   // =========================
-  // DAILY MODE
-  // =========================
-
   let { data: dailyMode } = await supabase
     .from("daily_modes")
     .select("*")
@@ -28,7 +40,6 @@ export async function planningAgent(userId: string) {
   if (!dailyMode) {
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
     const autoMode = isWeekend ? "LIGHT_PROGRESS" : "STRATEGIC";
-
     const { data: newMode } = await supabase
       .from("daily_modes")
       .insert({
@@ -39,12 +50,11 @@ export async function planningAgent(userId: string) {
       })
       .select()
       .single();
-
     dailyMode = newMode;
   }
 
+  // Ajusta el factor de carga (cuántas tareas programar) según el modo.
   let loadFactor = 0.75;
-
   switch (dailyMode.mode) {
     case "FULL_REST":
       loadFactor = 0.2;
@@ -63,10 +73,9 @@ export async function planningAgent(userId: string) {
       break;
   }
 
+  // 3. HORARIO DEL USUARIO (USER STRUCTURE)
+  // Obtiene las horas de despertar y dormir para definir el día.
   // =========================
-  // USER STRUCTURE
-  // =========================
-
   const { data: profile } = await supabase
     .from("user_schedule_profile")
     .select("*")
@@ -75,69 +84,68 @@ export async function planningAgent(userId: string) {
 
   const wakeTime = profile?.wake_time || "08:00";
   const sleepTime = profile?.sleep_time || "22:00";
-
   const wake = new Date(`${dateString}T${wakeTime}`);
   const sleep = new Date(`${dateString}T${sleepTime}`);
-
   let blocks: Block[] = [];
 
+  // 4. BLOQUES ESTRUCTURALES (COMIDAS)
+  // Crea los bloques fijos para las comidas del día.
   // =========================
-  // STRUCTURAL BLOCKS
-  // =========================
+  const { data: nutrition } = await supabase
+    .from("nutrition_profile")
+    .select("*")
+    .eq("user_id", userId)
+    .single();
 
   if (!nutrition || nutrition.eating_pattern === "NORMAL") {
-  const breakfast = nutrition?.breakfast_time || "08:00";
-  const lunch = nutrition?.lunch_time || "14:00";
-  const dinner = nutrition?.dinner_time || "21:00";
-
-  blocks.push({
-    start: new Date(`${dateString}T${breakfast}`),
-    end: new Date(new Date(`${dateString}T${breakfast}`).getTime() + 20 * 60000),
-    type: "STRUCTURAL",
-    label: "Desayuno"
-  });
-
-  blocks.push({
-    start: new Date(`${dateString}T${lunch}`),
-    end: new Date(new Date(`${dateString}T${lunch}`).getTime() + 60 * 60000),
-    type: "STRUCTURAL",
-    label: "Comida"
-  });
-
-  blocks.push({
-    start: new Date(`${dateString}T${dinner}`),
-    end: new Date(new Date(`${dateString}T${dinner}`).getTime() + 40 * 60000),
-    type: "STRUCTURAL",
-    label: "Cena"
-  });
-}
-if (nutrition?.eating_pattern === "RAMADAN") {
-  if (nutrition.suhoor_time) {
+    const breakfast = nutrition?.breakfast_time || "08:00";
+    const lunch = nutrition?.lunch_time || "14:00";
+    const dinner = nutrition?.dinner_time || "21:00";
     blocks.push({
-      start: new Date(`${dateString}T${nutrition.suhoor_time}`),
-      end: new Date(new Date(`${dateString}T${nutrition.suhoor_time}`).getTime() + 30 * 60000),
+      start: new Date(`${dateString}T${breakfast}`),
+      end: new Date(new Date(`${dateString}T${breakfast}`).getTime() + 20 * 60000),
       type: "STRUCTURAL",
-      label: "Suhoor"
+      label: "Desayuno"
+    });
+    blocks.push({
+      start: new Date(`${dateString}T${lunch}`),
+      end: new Date(new Date(`${dateString}T${lunch}`).getTime() + 60 * 60000),
+      type: "STRUCTURAL",
+      label: "Comida"
+    });
+    blocks.push({
+      start: new Date(`${dateString}T${dinner}`),
+      end: new Date(new Date(`${dateString}T${dinner}`).getTime() + 40 * 60000),
+      type: "STRUCTURAL",
+      label: "Cena"
     });
   }
 
-  if (nutrition.iftar_time) {
-    blocks.push({
-      start: new Date(`${dateString}T${nutrition.iftar_time}`),
-      end: new Date(new Date(`${dateString}T${nutrition.iftar_time}`).getTime() + 60 * 60000),
-      type: "STRUCTURAL",
-      label: "Iftar"
-    });
+  if (nutrition?.eating_pattern === "RAMADAN") {
+    if (nutrition.suhoor_time) {
+      blocks.push({
+        start: new Date(`${dateString}T${nutrition.suhoor_time}`),
+        end: new Date(new Date(`${dateString}T${nutrition.suhoor_time}`).getTime() + 30 * 60000),
+        type: "STRUCTURAL",
+        label: "Suhoor"
+      });
+    }
+    if (nutrition.iftar_time) {
+      blocks.push({
+        start: new Date(`${dateString}T${nutrition.iftar_time}`),
+        end: new Date(new Date(`${dateString}T${nutrition.iftar_time}`).getTime() + 60 * 60000),
+        type: "STRUCTURAL",
+        label: "Iftar"
+      });
+    }
   }
-}
 
-
+  // Ordena los bloques estructurales para poder encontrar huecos entre ellos.
   blocks.sort((a, b) => a.start.getTime() - b.start.getTime());
 
+  // 5. EXTRACCIÓN DE TAREAS (TASK EXTRACTION)
+  // Obtiene todas las tareas pendientes del usuario, priorizadas.
   // =========================
-  // TASK EXTRACTION
-  // =========================
-
   const { data: tasks } = await supabase
     .from("tasks")
     .select("*")
@@ -147,48 +155,32 @@ if (nutrition?.eating_pattern === "RAMADAN") {
     .order("importance", { ascending: false })
     .order("urgency", { ascending: false });
 
-  const totalAwakeMinutes =
-    (sleep.getTime() - wake.getTime()) / 60000;
-
+  const totalAwakeMinutes = (sleep.getTime() - wake.getTime()) / 60000;
   const maxStrategicMinutes = totalAwakeMinutes * loadFactor;
   let usedStrategicMinutes = 0;
   let taskIndex = 0;
 
+  // 6. DISTRIBUCIÓN DE TAREAS EN HUECOS (GAP DISTRIBUTION)
+  // =========================
   async function insertTasksInGap(gapStart: Date, gapEnd: Date) {
     let pointer = new Date(gapStart);
-
-    while (
-      taskIndex < (tasks?.length || 0) &&
-      pointer.getTime() < gapEnd.getTime()
-    ) {
+    while (taskIndex < (tasks?.length || 0) && pointer.getTime() < gapEnd.getTime()) {
       const task = tasks![taskIndex];
       const duration = task.estimated_minutes || 60;
-
-      const potentialEnd = new Date(
-        pointer.getTime() + duration * 60000
-      );
+      const potentialEnd = new Date(pointer.getTime() + duration * 60000);
 
       if (potentialEnd.getTime() > gapEnd.getTime()) break;
 
-      // ===== CAPACITY CONTROL + CASTIGO INTELIGENTE =====
+      // Control de capacidad y "castigo inteligente" para tareas aplazadas.
       if (usedStrategicMinutes + duration > maxStrategicMinutes) {
         const newDeferredCount = (task.deferred_count || 0) + 1;
-
         let newImportance = task.importance || 1;
         let newUrgency = task.urgency || 1;
         let forced = task.forced_priority || false;
 
-        if (newDeferredCount >= 3 && newImportance < 5) {
-          newImportance++;
-        }
-
-        if (newDeferredCount >= 5 && newUrgency < 5) {
-          newUrgency++;
-        }
-
-        if (newDeferredCount >= 7) {
-          forced = true;
-        }
+        if (newDeferredCount >= 3 && newImportance < 5) newImportance++;
+        if (newDeferredCount >= 5 && newUrgency < 5) newUrgency++;
+        if (newDeferredCount >= 7) forced = true;
 
         await supabase
           .from("tasks")
@@ -200,50 +192,50 @@ if (nutrition?.eating_pattern === "RAMADAN") {
             forced_priority: forced,
           })
           .eq("id", task.id);
-
         taskIndex++;
         continue;
       }
 
+      // Si la tarea cabe, se crea el bloque.
       blocks.push({
         start: new Date(pointer),
         end: potentialEnd,
         type: "TASK",
         taskId: task.id,
       });
-
       pointer = potentialEnd;
       usedStrategicMinutes += duration;
       taskIndex++;
     }
   }
-
-  // =========================
-  // GAP DISTRIBUTION
-  // =========================
-
-  if (wake < blocks[0].start) {
-    await insertTasksInGap(wake, blocks[0].start);
-  }
-
-  for (let i = 0; i < blocks.length - 1; i++) {
-    const currentEnd = blocks[i].end;
-    const nextStart = blocks[i + 1].start;
-
-    if (currentEnd < nextStart) {
-      await insertTasksInGap(currentEnd, nextStart);
+  
+  // Rellena los huecos con tareas.
+  if (blocks.length > 0) {
+    // Hueco 1: Desde que se despierta hasta el primer bloque.
+    if (wake < blocks[0].start) {
+      await insertTasksInGap(wake, blocks[0].start);
     }
+    // Huecos intermedios: Entre cada bloque estructural.
+    for (let i = 0; i < blocks.length - 1; i++) {
+      const currentEnd = blocks[i].end;
+      const nextStart = blocks[i + 1].start;
+      if (currentEnd < nextStart) {
+        await insertTasksInGap(currentEnd, nextStart);
+      }
+    }
+    // Hueco final: Desde el último bloque hasta la hora de dormir.
+    const lastBlockEnd = blocks[blocks.length - 1]?.end;
+    if (lastBlockEnd && lastBlockEnd < sleep) {
+      await insertTasksInGap(lastBlockEnd, sleep);
+    }
+  } else {
+    // Si no hay bloques estructurales, todo el día es un gran hueco.
+    await insertTasksInGap(wake, sleep);
   }
 
-  const lastBlockEnd = blocks[blocks.length - 1]?.end;
-  if (lastBlockEnd && lastBlockEnd < sleep) {
-    await insertTasksInGap(lastBlockEnd, sleep);
-  }
-
+  // 7. GUARDADO DEL PLAN (SAVE PLAN)
+  // Borra el plan antiguo y guarda el nuevo en la base de datos.
   // =========================
-  // SAVE PLAN
-  // =========================
-
   let { data: dailyPlan } = await supabase
     .from("daily_plans")
     .select("*")
@@ -262,15 +254,20 @@ if (nutrition?.eating_pattern === "RAMADAN") {
       })
       .select()
       .single();
-
     dailyPlan = newPlan;
   }
+  
+  if (!dailyPlan) {
+    throw new Error("Error fatal: No se pudo crear o encontrar un plan diario.");
+  }
 
-await supabase
-    .from("plan_items")
-    .delete()
-    .eq("daily_plan_id", dailyPlan.id);
+  // Borra los items del plan anterior para este día.
+  await supabase.from("plan_items").delete().eq("daily_plan_id", dailyPlan.id);
 
+  // Ordena la lista final de bloques (comidas + tareas) cronológicamente.
+  blocks.sort((a, b) => a.start.getTime() - b.start.getTime());
+
+  // Inserta todos los nuevos bloques en la tabla 'plan_items'.
   for (const block of blocks) {
     await supabase.from("plan_items").insert({
       user_id: userId,
@@ -279,11 +276,14 @@ await supabase
       end_time: block.end.toISOString(),
       item_type: block.type,
       task_id: block.taskId || null,
-      routine_id: null,
+      routine_id: null, // Campo reservado para el futuro
       status: "PENDIENTE",
     });
   }
 
+  // 8. RESULTADO
+  // Devuelve un resumen del plan generado.
+  // =========================
   return {
     mode: dailyMode.mode,
     total_blocks: blocks.length,
@@ -294,8 +294,3 @@ await supabase
     note: "Adaptive intelligent plan generated",
   };
 }
-const { data: nutrition } = await supabase
-  .from("nutrition_profile")
-  .select("*")
-  .eq("user_id", userId)
-  .single();
