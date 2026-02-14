@@ -4,8 +4,8 @@ export async function planningAgent(userId: string) {
   const supabase = await createServerClient();
   const today = new Date().toISOString().split("T")[0];
 
-  // Obtener tarea más prioritaria
-  const { data: tasks, error: taskError } = await supabase
+  // 1️⃣ Obtener tarea más prioritaria
+  const { data: tasks } = await supabase
     .from("tasks")
     .select("*")
     .eq("user_id", userId)
@@ -14,33 +14,43 @@ export async function planningAgent(userId: string) {
     .order("urgency", { ascending: false })
     .limit(1);
 
-  if (taskError) {
-    return { error: taskError.message };
-  }
-
   if (!tasks || tasks.length === 0) {
     return { message: "No tasks available" };
   }
 
   const topTask = tasks[0];
 
-  // Crear daily_plan
-  const { data: dailyPlan, error: planError } = await supabase
+  // 2️⃣ Buscar si ya existe plan para hoy
+  const { data: existingPlan } = await supabase
     .from("daily_plans")
-    .insert({
-      user_id: userId,
-      date: today,
-      status: "GENERATED",
-      agent_id: "planning_agent"
-    })
-    .select()
+    .select("*")
+    .eq("user_id", userId)
+    .eq("date", today)
     .single();
 
-  if (planError || !dailyPlan) {
-    return { error: planError?.message || "Daily plan failed" };
+  let dailyPlan = existingPlan;
+
+  // 3️⃣ Si no existe, crearlo
+  if (!existingPlan) {
+    const { data: newPlan, error: planError } = await supabase
+      .from("daily_plans")
+      .insert({
+        user_id: userId,
+        date: today,
+        status: "GENERATED",
+        agent_id: "planning_agent"
+      })
+      .select()
+      .single();
+
+    if (planError || !newPlan) {
+      return { error: planError?.message || "Daily plan failed" };
+    }
+
+    dailyPlan = newPlan;
   }
 
-  // Crear bloque plan_item
+  // 4️⃣ Insertar bloque en plan_items
   const { error: planItemError } = await supabase
     .from("plan_items")
     .insert({
@@ -55,12 +65,16 @@ export async function planningAgent(userId: string) {
     });
 
   if (planItemError) {
-    return { error: planItemError.message };
+    return {
+      error: "Plan item insert failed",
+      details: planItemError.message
+    };
   }
 
   return {
     priority_of_the_day: topTask.content,
-    note: "Daily plan created"
+    note: "Daily plan ready"
   };
 }
+
 
