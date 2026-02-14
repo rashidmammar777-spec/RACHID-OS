@@ -26,7 +26,7 @@ export async function planningAgent(userId: string) {
     .select("*")
     .eq("user_id", userId)
     .eq("date", today)
-    .single();
+    .maybeSingle();
 
   let dailyPlan = existingPlan;
 
@@ -50,14 +50,20 @@ export async function planningAgent(userId: string) {
     dailyPlan = newPlan;
   }
 
-  // 4️⃣ Insertar bloque en plan_items
+  // 🧹 4️⃣ BORRAR bloques anteriores
+  await supabase
+    .from("plan_items")
+    .delete()
+    .eq("daily_plan_id", dailyPlan.id);
+
+  // 5️⃣ Insertar nuevo bloque
   const { error: planItemError } = await supabase
     .from("plan_items")
     .insert({
       user_id: userId,
       daily_plan_id: dailyPlan.id,
-      start_time: today + "T08:00:00",
-      end_time: today + "T09:00:00",
+      start_time: `${today}T08:00:00`,
+      end_time: `${today}T09:00:00`,
       item_type: "TASK",
       task_id: topTask.id,
       routine_id: null,
@@ -73,15 +79,6 @@ export async function planningAgent(userId: string) {
 
   return {
     priority_of_the_day: topTask.content,
-    note: "Daily plan ready"
+    note: "Daily plan regenerated cleanly"
   };
-  {
-// 🧹 Delete previous plan items
-await supabase
-  .from("plan_items")
-  .delete()
-  .eq("daily_plan_id", dailyPlan.id);
-
-
-
-
+}
