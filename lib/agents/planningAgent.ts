@@ -131,14 +131,6 @@ if (nutrition?.eating_pattern === "RAMADAN") {
   }
 }
 
-  const lunchEnd = new Date(lunchStart.getTime() + 60 * 60000);
-
-  blocks.push({
-    start: lunchStart,
-    end: lunchEnd,
-    type: "STRUCTURAL",
-    label: "Comida",
-  });
 
   blocks.sort((a, b) => a.start.getTime() - b.start.getTime());
 
