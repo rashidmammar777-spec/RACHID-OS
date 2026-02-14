@@ -4,7 +4,7 @@ type Block = {
   start: Date;
   end: Date;
   type: "STRUCTURAL" | "TASK";
-  taskId?: string;
+  taskId?: string; 
   label?: string;
 };
 
