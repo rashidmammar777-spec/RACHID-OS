@@ -59,7 +59,8 @@ if (planItemError) {
     user_id: userId,
     daily_plan_id: dailyPlan.id,
     start_time: `${today}T08:00:00`,
-    end_time: `${today}T09:00:00`,
+end_time: `${today}T09:00:00`,
+
     item_type: "TASK",
     task_id: topTask.id,
     status: "PENDIENTE"
