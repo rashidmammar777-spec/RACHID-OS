@@ -75,11 +75,13 @@ export async function planningAgent(userId: string) {
     priority_of_the_day: topTask.content,
     note: "Daily plan ready"
   };
-// 🧹 Borrar bloques anteriores del día
+  {
+// 🧹 Delete previous plan items
 await supabase
   .from("plan_items")
   .delete()
   .eq("daily_plan_id", dailyPlan.id);
+
 
 
 
