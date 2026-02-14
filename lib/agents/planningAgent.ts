@@ -95,6 +95,22 @@ if (sleepHours < 6) {
   const wake = new Date(`${dateString}T${wakeTime}`);
   const sleep = new Date(`${dateString}T${sleepTime}`);
   let blocks: Block[] = [];
+  if (dailyMode.mode === "FULL_REST") {
+  blocks.push({
+    start: new Date(`${dateString}T10:00:00`),
+    end: new Date(`${dateString}T10:30:00`),
+    type: "STRUCTURAL",
+    label: "Movimiento ligero"
+  });
+
+  blocks.push({
+    start: new Date(`${dateString}T18:00:00`),
+    end: new Date(`${dateString}T18:30:00`),
+    type: "STRUCTURAL",
+    label: "Contacto familiar"
+  });
+}
+
 
   // 4. BLOQUES ESTRUCTURALES (COMIDAS)
   // Crea los bloques fijos para las comidas del día.
