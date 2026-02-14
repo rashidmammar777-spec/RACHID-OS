@@ -14,7 +14,9 @@ export async function planningAgent(userId: string) {
   const dateString = today.toISOString().split("T")[0];
   const dayOfWeek = today.getDay();
 
-  // ===== DAILY MODE =====
+  // =========================
+  // DAILY MODE
+  // =========================
 
   let { data: dailyMode } = await supabase
     .from("daily_modes")
@@ -33,7 +35,7 @@ export async function planningAgent(userId: string) {
         user_id: userId,
         date: dateString,
         mode: autoMode,
-        auto_generated: true
+        auto_generated: true,
       })
       .select()
       .single();
@@ -61,7 +63,9 @@ export async function planningAgent(userId: string) {
       break;
   }
 
-  // ===== USER STRUCTURE =====
+  // =========================
+  // USER STRUCTURE
+  // =========================
 
   const { data: profile } = await supabase
     .from("user_schedule_profile")
@@ -71,71 +75,16 @@ export async function planningAgent(userId: string) {
 
   const wakeTime = profile?.wake_time || "08:00";
   const sleepTime = profile?.sleep_time || "22:00";
-  const minRest = profile?.minimum_rest_minutes || 60;
-
-  const { data: weekly } = await supabase
-    .from("weekly_schedule")
-    .select("*")
-    .eq("user_id", userId)
-    .eq("day_of_week", dayOfWeek)
-    .single();
-
-  const workStart = weekly?.work_start_time;
-  const workEnd = weekly?.work_end_time;
-  const commute = weekly?.commute_minutes || 0;
-  const siestaMinutes = weekly?.midday_rest_minutes || 0;
 
   const wake = new Date(`${dateString}T${wakeTime}`);
   const sleep = new Date(`${dateString}T${sleepTime}`);
 
   let blocks: Block[] = [];
 
-  // ===== STRUCTURAL BLOCKS =====
+  // =========================
+  // STRUCTURAL BLOCKS
+  // =========================
 
-  // Trabajo
-  if (workStart && workEnd) {
-    const ws = new Date(`${dateString}T${workStart}`);
-    const we = new Date(`${dateString}T${workEnd}`);
-
-    blocks.push({ start: ws, end: we, type: "STRUCTURAL", label: "Trabajo" });
-
-    if (commute > 0) {
-      const commuteStart = new Date(ws.getTime() - commute * 60000);
-      blocks.push({
-        start: commuteStart,
-        end: ws,
-        type: "STRUCTURAL",
-        label: "Desplazamiento"
-      });
-
-      const commuteBackEnd = new Date(we.getTime() + commute * 60000);
-      blocks.push({
-        start: we,
-        end: commuteBackEnd,
-        type: "STRUCTURAL",
-        label: "Desplazamiento"
-      });
-    }
-  }
-
-  // Desayuno flexible antes del trabajo
-  const breakfastDuration = 20;
-  const breakfastEnd = workStart
-    ? new Date(`${dateString}T${workStart}`)
-    : new Date(wake.getTime() + 2 * 60 * 60000);
-
-  const breakfastStart = new Date(
-    breakfastEnd.getTime() - breakfastDuration * 60000
-  );
-
-  blocks.push({
-    start: breakfastStart,
-    end: breakfastEnd,
-    type: "STRUCTURAL",
-    label: "Desayuno"
-  });
-
-  // Comida
   const lunchStart = new Date(`${dateString}T14:00:00`);
   const lunchEnd = new Date(lunchStart.getTime() + 60 * 60000);
 
@@ -143,44 +92,21 @@ export async function planningAgent(userId: string) {
     start: lunchStart,
     end: lunchEnd,
     type: "STRUCTURAL",
-    label: "Comida"
+    label: "Comida",
   });
-
-  // Cena
-  const dinnerStart = new Date(`${dateString}T21:00:00`);
-  const dinnerEnd = new Date(dinnerStart.getTime() + 40 * 60000);
-
-  blocks.push({
-    start: dinnerStart,
-    end: dinnerEnd,
-    type: "STRUCTURAL",
-    label: "Cena"
-  });
-
-  // Siesta
-  if (siestaMinutes > 0) {
-    const siestaStart = new Date(`${dateString}T15:30:00`);
-    const siestaEnd = new Date(
-      siestaStart.getTime() + siestaMinutes * 60000
-    );
-
-    blocks.push({
-      start: siestaStart,
-      end: siestaEnd,
-      type: "STRUCTURAL",
-      label: "Descanso"
-    });
-  }
 
   blocks.sort((a, b) => a.start.getTime() - b.start.getTime());
 
-  // ===== TASKS =====
+  // =========================
+  // TASK EXTRACTION
+  // =========================
 
   const { data: tasks } = await supabase
     .from("tasks")
     .select("*")
     .eq("user_id", userId)
     .eq("status", "INBOX")
+    .order("forced_priority", { ascending: false })
     .order("importance", { ascending: false })
     .order("urgency", { ascending: false });
 
@@ -191,7 +117,7 @@ export async function planningAgent(userId: string) {
   let usedStrategicMinutes = 0;
   let taskIndex = 0;
 
-  function insertTasksInGap(gapStart: Date, gapEnd: Date) {
+  async function insertTasksInGap(gapStart: Date, gapEnd: Date) {
     let pointer = new Date(gapStart);
 
     while (
@@ -207,47 +133,46 @@ export async function planningAgent(userId: string) {
 
       if (potentialEnd.getTime() > gapEnd.getTime()) break;
 
-if (usedStrategicMinutes + duration > maxStrategicMinutes) {
+      // ===== CAPACITY CONTROL + CASTIGO INTELIGENTE =====
+      if (usedStrategicMinutes + duration > maxStrategicMinutes) {
+        const newDeferredCount = (task.deferred_count || 0) + 1;
 
-  const newDeferredCount = (task.deferred_count || 0) + 1;
+        let newImportance = task.importance || 1;
+        let newUrgency = task.urgency || 1;
+        let forced = task.forced_priority || false;
 
-  let newImportance = task.importance;
-  let newUrgency = task.urgency;
-  let forced = task.forced_priority || false;
+        if (newDeferredCount >= 3 && newImportance < 5) {
+          newImportance++;
+        }
 
-  if (newDeferredCount >= 3 && newImportance < 5) {
-    newImportance = Math.min((newImportance || 1) + 1, 5);
-  }
+        if (newDeferredCount >= 5 && newUrgency < 5) {
+          newUrgency++;
+        }
 
-  if (newDeferredCount >= 5 && newUrgency < 5) {
-    newUrgency = Math.min((newUrgency || 1) + 1, 5);
-  }
+        if (newDeferredCount >= 7) {
+          forced = true;
+        }
 
-  if (newDeferredCount >= 7) {
-    forced = true;
-  }
+        await supabase
+          .from("tasks")
+          .update({
+            deferred_count: newDeferredCount,
+            last_deferred_at: new Date().toISOString(),
+            importance: newImportance,
+            urgency: newUrgency,
+            forced_priority: forced,
+          })
+          .eq("id", task.id);
 
-  await supabase
-    .from("tasks")
-    .update({
-      deferred_count: newDeferredCount,
-      last_deferred_at: new Date().toISOString(),
-      importance: newImportance,
-      urgency: newUrgency,
-      forced_priority: forced
-    })
-    .eq("id", task.id);
-
-  taskIndex++;
-  continue;
-}
-
+        taskIndex++;
+        continue;
+      }
 
       blocks.push({
         start: new Date(pointer),
         end: potentialEnd,
         type: "TASK",
-        taskId: task.id
+        taskId: task.id,
       });
 
       pointer = potentialEnd;
@@ -256,9 +181,12 @@ if (usedStrategicMinutes + duration > maxStrategicMinutes) {
     }
   }
 
-  // Huecos
-  if (blocks.length > 0 && wake < blocks[0].start) {
-    insertTasksInGap(wake, blocks[0].start);
+  // =========================
+  // GAP DISTRIBUTION
+  // =========================
+
+  if (wake < blocks[0].start) {
+    await insertTasksInGap(wake, blocks[0].start);
   }
 
   for (let i = 0; i < blocks.length - 1; i++) {
@@ -266,16 +194,18 @@ if (usedStrategicMinutes + duration > maxStrategicMinutes) {
     const nextStart = blocks[i + 1].start;
 
     if (currentEnd < nextStart) {
-      insertTasksInGap(currentEnd, nextStart);
+      await insertTasksInGap(currentEnd, nextStart);
     }
   }
 
   const lastBlockEnd = blocks[blocks.length - 1]?.end;
   if (lastBlockEnd && lastBlockEnd < sleep) {
-    insertTasksInGap(lastBlockEnd, sleep);
+    await insertTasksInGap(lastBlockEnd, sleep);
   }
 
-  // ===== SAVE =====
+  // =========================
+  // SAVE PLAN
+  // =========================
 
   let { data: dailyPlan } = await supabase
     .from("daily_plans")
@@ -291,7 +221,7 @@ if (usedStrategicMinutes + duration > maxStrategicMinutes) {
         user_id: userId,
         date: dateString,
         status: "GENERATED",
-        agent_id: "planning_agent"
+        agent_id: "planning_agent",
       })
       .select()
       .single();
@@ -313,19 +243,17 @@ if (usedStrategicMinutes + duration > maxStrategicMinutes) {
       item_type: block.type,
       task_id: block.taskId || null,
       routine_id: null,
-      status: "PENDIENTE"
+      status: "PENDIENTE",
     });
   }
 
   return {
-  mode: dailyMode.mode,
-  total_blocks: blocks.length,
-  strategic_load_percent: Math.round(loadFactor * 100),
-  used_minutes: usedStrategicMinutes,
-  total_awake_minutes: totalAwakeMinutes,
-  real_load_percentage:
-    totalAwakeMinutes > 0
-      ? Math.round((usedStrategicMinutes / totalAwakeMinutes) * 100)
-      : 0
-};
-
+    mode: dailyMode.mode,
+    total_blocks: blocks.length,
+    used_minutes: usedStrategicMinutes,
+    real_load_percent: Math.round(
+      (usedStrategicMinutes / totalAwakeMinutes) * 100
+    ),
+    note: "Adaptive intelligent plan generated",
+  };
+}
