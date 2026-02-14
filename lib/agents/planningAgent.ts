@@ -56,6 +56,14 @@ export async function planningAgent(userId: string) {
   // Ajusta el factor de carga (cuántas tareas programar) según el modo.
   let loadFactor = 0.75;
   switch (dailyMode.mode) {
+      // ===== ENERGY ADJUSTMENT =====
+const sleepHours =
+  (sleep.getTime() - wake.getTime()) / 3600000;
+
+if (sleepHours < 6) {
+  loadFactor = Math.min(loadFactor, 0.4);
+}
+
     case "FULL_REST":
       loadFactor = 0.2;
       break;
