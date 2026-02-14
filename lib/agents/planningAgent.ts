@@ -205,11 +205,43 @@ export async function planningAgent(userId: string) {
         pointer.getTime() + duration * 60000
       );
 
-      if (
-        potentialEnd.getTime() > gapEnd.getTime() ||
-        usedStrategicMinutes + duration > maxStrategicMinutes
-      )
-        break;
+      if (potentialEnd.getTime() > gapEnd.getTime()) break;
+
+if (usedStrategicMinutes + duration > maxStrategicMinutes) {
+
+  const newDeferredCount = (task.deferred_count || 0) + 1;
+
+  let newImportance = task.importance;
+  let newUrgency = task.urgency;
+  let forced = task.forced_priority || false;
+
+  if (newDeferredCount >= 3 && newImportance < 5) {
+    newImportance = Math.min((newImportance || 1) + 1, 5);
+  }
+
+  if (newDeferredCount >= 5 && newUrgency < 5) {
+    newUrgency = Math.min((newUrgency || 1) + 1, 5);
+  }
+
+  if (newDeferredCount >= 7) {
+    forced = true;
+  }
+
+  await supabase
+    .from("tasks")
+    .update({
+      deferred_count: newDeferredCount,
+      last_deferred_at: new Date().toISOString(),
+      importance: newImportance,
+      urgency: newUrgency,
+      forced_priority: forced
+    })
+    .eq("id", task.id);
+
+  taskIndex++;
+  continue;
+}
+
 
       blocks.push({
         start: new Date(pointer),
