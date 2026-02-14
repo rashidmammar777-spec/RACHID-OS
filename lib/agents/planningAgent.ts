@@ -58,7 +58,7 @@ export async function planningAgent(userId: string) {
   switch (dailyMode.mode) {
       // ===== ENERGY ADJUSTMENT =====
 const sleepHours =
-  (sleep.getTime() - wake.getTime()) / 3600000;
+  (sleep.getTime() - wake.getTime()) / 3600000; 
 
 if (sleepHours < 6) {
   loadFactor = loadFactor * 0.7;
