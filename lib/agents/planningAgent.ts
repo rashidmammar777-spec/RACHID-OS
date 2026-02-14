@@ -257,3 +257,8 @@ await supabase
     note: "Adaptive intelligent plan generated",
   };
 }
+const { data: nutrition } = await supabase
+  .from("nutrition_profile")
+  .select("*")
+  .eq("user_id", userId)
+  .single();
