@@ -1,5 +1,5 @@
-// Importar el cliente de Supabase para operaciones en el servidor
-import { createClient } from "@/lib/supabase/server";
+// const supabase = createServiceClient();
+import { createServiceClient } from "@/lib/supabase/service";
 
 // Definir el tipo de dato para un bloque de planificación
 type Block = {
