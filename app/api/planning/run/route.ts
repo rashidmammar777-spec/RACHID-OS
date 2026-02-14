@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { planningAgent } from "@/lib/agents/planningAgent";
-import { createServerClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
+
 
 export async function GET() {
   const supabase = await createServerClient();
