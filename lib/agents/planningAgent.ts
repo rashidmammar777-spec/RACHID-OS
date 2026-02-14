@@ -5,7 +5,6 @@ export async function planningAgent(userId: string) {
 
   const today = new Date().toISOString().split("T")[0];
 
-  // 1️⃣ Leer tareas prioritarias
   const { data: tasks } = await supabase
     .from("tasks")
     .select("*")
@@ -21,7 +20,6 @@ export async function planningAgent(userId: string) {
 
   const topTask = tasks[0];
 
-  // 2️⃣ Crear daily_plan
   const { data: dailyPlan } = await supabase
     .from("daily_plans")
     .insert({
@@ -37,39 +35,29 @@ export async function planningAgent(userId: string) {
     return { error: "Failed to create daily plan" };
   }
 
-  // 3️⃣ Crear bloque en plan_items
-  const { error: planItemError } = await supabase.from("plan_items").insert({
-  user_id: userId,
-  daily_plan_id: dailyPlan.id,
- start_time: today + "T08:00:00",
-end_time: today + "T09:00:00",
+  const { error: planItemError } = await supabase
+    .from("plan_items")
+    .insert({
+      user_id: userId,
+      daily_plan_id: dailyPlan.id,
+      start_time: today + "T08:00:00",
+      end_time: today + "T09:00:00",
+      item_type: "TASK",
+      task_id: topTask.id,
+      routine_id: null,
+      status: "PENDIENTE"
+    });
 
-
-  item_type: "TASK",
-  task_id: topTask.id,
-  routine_id: null,
-  status: "PENDIENTE"
-});
-
-if (planItemError) {
-  return {
-    error: "Plan item insert failed",
-    details: planItemError.message
-  };
-}
-
-    user_id: userId,
-    daily_plan_id: dailyPlan.id,
-    start_time: `${today}T08:00:00`,
-end_time: `${today}T09:00:00`,
-
-    item_type: "TASK",
-    task_id: topTask.id,
-    status: "PENDIENTE"
-  });
+  if (planItemError) {
+    return {
+      error: "Plan item insert failed",
+      details: planItemError.message
+    };
+  }
 
   return {
     priority_of_the_day: topTask.content,
     note: "Daily plan created successfully"
   };
 }
+
