@@ -12,6 +12,53 @@ export async function planningAgent(userId: string) {
   const supabase = await createServerClient();
   const today = new Date();
   const dateString = today.toISOString().split("T")[0];
+  // ===== DAILY MODE =====
+
+let { data: dailyMode } = await supabase
+  .from("daily_modes")
+  .select("*")
+  .eq("user_id", userId)
+  .eq("date", dateString)
+  .single();
+
+if (!dailyMode) {
+  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+  const autoMode = isWeekend ? "LIGHT_PROGRESS" : "STRATEGIC";
+
+  const { data: newMode } = await supabase
+    .from("daily_modes")
+    .insert({
+      user_id: userId,
+      date: dateString,
+      mode: autoMode,
+      auto_generated: true
+    })
+    .select()
+    .single();
+
+  dailyMode = newMode;
+}
+
+let loadFactor = 0.75;
+
+switch (dailyMode.mode) {
+  case "FULL_REST":
+    loadFactor = 0.2;
+    break;
+  case "LIGHT_PROGRESS":
+    loadFactor = 0.5;
+    break;
+  case "STRATEGIC":
+    loadFactor = 0.75;
+    break;
+  case "HIGH_PERFORMANCE":
+    loadFactor = 0.9;
+    break;
+  case "RECOVERY":
+    loadFactor = 0.3;
+    break;
+}
+
   const dayOfWeek = today.getDay();
 
   // ===== 1️⃣ Obtener estructura base =====
