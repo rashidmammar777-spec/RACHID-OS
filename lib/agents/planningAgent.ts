@@ -247,7 +247,7 @@ export async function planningAgent(userId: string) {
     });
   }
 
-  return {
+    return {
     mode: dailyMode.mode,
     total_blocks: blocks.length,
     used_minutes: usedStrategicMinutes,
