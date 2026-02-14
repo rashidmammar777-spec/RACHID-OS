@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
+import { planningAgent } from "@/lib/agents/planningAgent";
 
 export async function POST() {
-  return NextResponse.json({ status: "planning endpoint ready" });
+  const result = await planningAgent("test-user");
+
+  return NextResponse.json(result);
 }
