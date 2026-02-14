@@ -286,8 +286,14 @@ export async function planningAgent(userId: string) {
   }
 
   return {
-    mode: dailyMode.mode,
-    total_blocks: blocks.length,
-    strategic_load_percent: Math.round(loadFactor * 100)
-  };
-}
+  mode: dailyMode.mode,
+  total_blocks: blocks.length,
+  strategic_load_percent: Math.round(loadFactor * 100),
+  used_minutes: usedStrategicMinutes,
+  total_awake_minutes: totalAwakeMinutes,
+  real_load_percentage:
+    totalAwakeMinutes > 0
+      ? Math.round((usedStrategicMinutes / totalAwakeMinutes) * 100)
+      : 0
+};
+
