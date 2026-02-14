@@ -2,10 +2,10 @@ import { createServerClient } from "@/lib/supabase/server";
 
 export async function planningAgent(userId: string) {
   const supabase = await createServerClient();
-
   const today = new Date().toISOString().split("T")[0];
 
-  const { data: tasks } = await supabase
+  // Obtener tarea más prioritaria
+  const { data: tasks, error: taskError } = await supabase
     .from("tasks")
     .select("*")
     .eq("user_id", userId)
@@ -14,13 +14,18 @@ export async function planningAgent(userId: string) {
     .order("urgency", { ascending: false })
     .limit(1);
 
+  if (taskError) {
+    return { error: taskError.message };
+  }
+
   if (!tasks || tasks.length === 0) {
     return { message: "No tasks available" };
   }
 
   const topTask = tasks[0];
 
-  const { data: dailyPlan } = await supabase
+  // Crear daily_plan
+  const { data: dailyPlan, error: planError } = await supabase
     .from("daily_plans")
     .insert({
       user_id: userId,
@@ -31,10 +36,11 @@ export async function planningAgent(userId: string) {
     .select()
     .single();
 
-  if (!dailyPlan) {
-    return { error: "Failed to create daily plan" };
+  if (planError || !dailyPlan) {
+    return { error: planError?.message || "Daily plan failed" };
   }
 
+  // Crear bloque plan_item
   const { error: planItemError } = await supabase
     .from("plan_items")
     .insert({
@@ -49,15 +55,12 @@ export async function planningAgent(userId: string) {
     });
 
   if (planItemError) {
-    return {
-      error: "Plan item insert failed",
-      details: planItemError.message
-    };
+    return { error: planItemError.message };
   }
 
   return {
     priority_of_the_day: topTask.content,
-    note: "Daily plan created successfully"
+    note: "Daily plan created"
   };
 }
 
