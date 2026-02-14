@@ -229,7 +229,7 @@ export async function planningAgent(userId: string) {
     dailyPlan = newPlan;
   }
 
-  await supabase
+await supabase
     .from("plan_items")
     .delete()
     .eq("daily_plan_id", dailyPlan.id);
@@ -247,7 +247,7 @@ export async function planningAgent(userId: string) {
     });
   }
 
-    return {
+  return {
     mode: dailyMode.mode,
     total_blocks: blocks.length,
     used_minutes: usedStrategicMinutes,
