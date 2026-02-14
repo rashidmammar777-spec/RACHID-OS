@@ -12,56 +12,56 @@ export async function planningAgent(userId: string) {
   const supabase = await createServerClient();
   const today = new Date();
   const dateString = today.toISOString().split("T")[0];
-  // ===== DAILY MODE =====
-
-let { data: dailyMode } = await supabase
-  .from("daily_modes")
-  .select("*")
-  .eq("user_id", userId)
-  .eq("date", dateString)
-  .single();
-
-if (!dailyMode) {
-  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-  const autoMode = isWeekend ? "LIGHT_PROGRESS" : "STRATEGIC";
-
-  const { data: newMode } = await supabase
-    .from("daily_modes")
-    .insert({
-      user_id: userId,
-      date: dateString,
-      mode: autoMode,
-      auto_generated: true
-    })
-    .select()
-    .single();
-
-  dailyMode = newMode;
-}
-
-let loadFactor = 0.75;
-
-switch (dailyMode.mode) {
-  case "FULL_REST":
-    loadFactor = 0.2;
-    break;
-  case "LIGHT_PROGRESS":
-    loadFactor = 0.5;
-    break;
-  case "STRATEGIC":
-    loadFactor = 0.75;
-    break;
-  case "HIGH_PERFORMANCE":
-    loadFactor = 0.9;
-    break;
-  case "RECOVERY":
-    loadFactor = 0.3;
-    break;
-}
-
   const dayOfWeek = today.getDay();
 
-  // ===== 1️⃣ Obtener estructura base =====
+  // ===== DAILY MODE =====
+
+  let { data: dailyMode } = await supabase
+    .from("daily_modes")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("date", dateString)
+    .single();
+
+  if (!dailyMode) {
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+    const autoMode = isWeekend ? "LIGHT_PROGRESS" : "STRATEGIC";
+
+    const { data: newMode } = await supabase
+      .from("daily_modes")
+      .insert({
+        user_id: userId,
+        date: dateString,
+        mode: autoMode,
+        auto_generated: true
+      })
+      .select()
+      .single();
+
+    dailyMode = newMode;
+  }
+
+  let loadFactor = 0.75;
+
+  switch (dailyMode.mode) {
+    case "FULL_REST":
+      loadFactor = 0.2;
+      break;
+    case "LIGHT_PROGRESS":
+      loadFactor = 0.5;
+      break;
+    case "STRATEGIC":
+      loadFactor = 0.75;
+      break;
+    case "HIGH_PERFORMANCE":
+      loadFactor = 0.9;
+      break;
+    case "RECOVERY":
+      loadFactor = 0.3;
+      break;
+  }
+
+  // ===== USER STRUCTURE =====
 
   const { data: profile } = await supabase
     .from("user_schedule_profile")
@@ -90,7 +90,7 @@ switch (dailyMode.mode) {
 
   let blocks: Block[] = [];
 
-  // ===== 2️⃣ Bloques estructurales =====
+  // ===== STRUCTURAL BLOCKS =====
 
   // Trabajo
   if (workStart && workEnd) {
@@ -99,7 +99,6 @@ switch (dailyMode.mode) {
 
     blocks.push({ start: ws, end: we, type: "STRUCTURAL", label: "Trabajo" });
 
-    // Commute ida
     if (commute > 0) {
       const commuteStart = new Date(ws.getTime() - commute * 60000);
       blocks.push({
@@ -109,7 +108,6 @@ switch (dailyMode.mode) {
         label: "Desplazamiento"
       });
 
-      // Commute vuelta
       const commuteBackEnd = new Date(we.getTime() + commute * 60000);
       blocks.push({
         start: we,
@@ -137,7 +135,7 @@ switch (dailyMode.mode) {
     label: "Desayuno"
   });
 
-  // Comida estándar 14:00
+  // Comida
   const lunchStart = new Date(`${dateString}T14:00:00`);
   const lunchEnd = new Date(lunchStart.getTime() + 60 * 60000);
 
@@ -148,7 +146,7 @@ switch (dailyMode.mode) {
     label: "Comida"
   });
 
-  // Cena estándar 21:00
+  // Cena
   const dinnerStart = new Date(`${dateString}T21:00:00`);
   const dinnerEnd = new Date(dinnerStart.getTime() + 40 * 60000);
 
@@ -174,11 +172,9 @@ switch (dailyMode.mode) {
     });
   }
 
-  // ===== 3️⃣ Ordenar bloques estructurales =====
-
   blocks.sort((a, b) => a.start.getTime() - b.start.getTime());
 
-  // ===== 4️⃣ Obtener tareas =====
+  // ===== TASKS =====
 
   const { data: tasks } = await supabase
     .from("tasks")
@@ -188,8 +184,11 @@ switch (dailyMode.mode) {
     .order("importance", { ascending: false })
     .order("urgency", { ascending: false });
 
-  // ===== 5️⃣ Detectar huecos =====
+  const totalAwakeMinutes =
+    (sleep.getTime() - wake.getTime()) / 60000;
 
+  const maxStrategicMinutes = totalAwakeMinutes * loadFactor;
+  let usedStrategicMinutes = 0;
   let taskIndex = 0;
 
   function insertTasksInGap(gapStart: Date, gapEnd: Date) {
@@ -206,7 +205,11 @@ switch (dailyMode.mode) {
         pointer.getTime() + duration * 60000
       );
 
-      if (potentialEnd.getTime() > gapEnd.getTime()) break;
+      if (
+        potentialEnd.getTime() > gapEnd.getTime() ||
+        usedStrategicMinutes + duration > maxStrategicMinutes
+      )
+        break;
 
       blocks.push({
         start: new Date(pointer),
@@ -216,16 +219,16 @@ switch (dailyMode.mode) {
       });
 
       pointer = potentialEnd;
+      usedStrategicMinutes += duration;
       taskIndex++;
     }
   }
 
-  // Primer hueco antes del primer bloque
+  // Huecos
   if (blocks.length > 0 && wake < blocks[0].start) {
     insertTasksInGap(wake, blocks[0].start);
   }
 
-  // Huecos entre bloques
   for (let i = 0; i < blocks.length - 1; i++) {
     const currentEnd = blocks[i].end;
     const nextStart = blocks[i + 1].start;
@@ -235,13 +238,12 @@ switch (dailyMode.mode) {
     }
   }
 
-  // Último hueco hasta sleep
   const lastBlockEnd = blocks[blocks.length - 1]?.end;
   if (lastBlockEnd && lastBlockEnd < sleep) {
     insertTasksInGap(lastBlockEnd, sleep);
   }
 
-  // ===== 6️⃣ Guardar en base de datos =====
+  // ===== SAVE =====
 
   let { data: dailyPlan } = await supabase
     .from("daily_plans")
@@ -284,7 +286,8 @@ switch (dailyMode.mode) {
   }
 
   return {
-    note: "Full structured day generated",
-    total_blocks: blocks.length
+    mode: dailyMode.mode,
+    total_blocks: blocks.length,
+    strategic_load_percent: Math.round(loadFactor * 100)
   };
 }
