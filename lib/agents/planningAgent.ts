@@ -6,7 +6,11 @@ export async function planningAgent(userId: string) {
   const { data: tasks, error } = await supabase
     .from("tasks")
     .select("*")
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    .eq("status", "INBOX")
+    .order("importance", { ascending: false })
+    .order("urgency", { ascending: false })
+    .limit(3);
 
   if (error) {
     return {
@@ -15,7 +19,8 @@ export async function planningAgent(userId: string) {
   }
 
   return {
-    total_tasks: tasks?.length || 0,
-    note: "Planning agent connected to database"
+    priority_of_the_day: tasks?.[0]?.content || "No tasks available",
+    top_tasks: tasks?.map(t => t.content) || [],
+    note: "Basic prioritization active"
   };
 }
