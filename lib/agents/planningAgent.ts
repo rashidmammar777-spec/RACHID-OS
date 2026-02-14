@@ -308,6 +308,19 @@ if (sleepHours < 6) {
   // 8. RESULTADO
   // Devuelve un resumen del plan generado.
   // =========================
+  const strategicSummary = `
+Modo del día: ${dailyMode.mode}
+Bloques totales: ${blocks.length}
+Carga real: ${Math.round((usedStrategicMinutes / totalAwakeMinutes) * 100)}%
+`;
+
+await supabase
+  .from("daily_plans")
+  .update({
+    strategic_summary: strategicSummary
+  })
+  .eq("id", dailyPlan.id);
+
   return {
     mode: dailyMode.mode,
     total_blocks: blocks.length,
