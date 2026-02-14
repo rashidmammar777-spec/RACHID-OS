@@ -1,5 +1,5 @@
 // Importar el cliente de Supabase para operaciones en el servidor
-import { createServerClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 
 // Definir el tipo de dato para un bloque de planificación
 type Block = {
@@ -21,23 +21,21 @@ type Block = {
 export async function planningAgent(userId: string) {
   // 1. INICIALIZACIÓN
   // =========================
-  const supabase = await createServerClient();
+  const supabase = createClient();
   const today = new Date();
   const dateString = today.toISOString().split("T")[0];
   const dayOfWeek = today.getDay();
 
   // 2. MODO DIARIO (DAILY MODE)
-  // Determina el modo del usuario para el día (ej. estratégico, descanso).
-  // Si no existe, lo crea automáticamente.
   // =========================
-  let { data: dailyMode } = await supabase
+  let { data: dailyMode, error: dailyModeError } = await supabase
     .from("daily_modes")
     .select("*")
     .eq("user_id", userId)
     .eq("date", dateString)
     .single();
 
-  if (!dailyMode) {
+  if (dailyModeError || !dailyMode) {
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
     const autoMode = isWeekend ? "LIGHT_PROGRESS" : "STRATEGIC";
     const { data: newMode } = await supabase
@@ -53,40 +51,10 @@ export async function planningAgent(userId: string) {
     dailyMode = newMode;
   }
 
-  // Ajusta el factor de carga (cuántas tareas programar) según el modo.
-  let loadFactor = 0.75;
-  switch (dailyMode.mode) {
-      // ===== ENERGY ADJUSTMENT =====
-const wake = new Date(`${dateString}T${wakeTime}`);
-const sleep = new Date(`${dateString}T${sleepTime}`);
-
-const sleepHours =
-  (sleep.getTime() - wake.getTime()) / 3600000;
-
-if (sleepHours < 6) {
-  loadFactor = loadFactor * 0.7;
-}
-
-
-    case "FULL_REST":
-      loadFactor = 0.2;
-      break;
-    case "LIGHT_PROGRESS":
-      loadFactor = 0.5;
-      break;
-    case "STRATEGIC":
-      loadFactor = 0.75;
-      break;
-    case "HIGH_PERFORMANCE":
-      loadFactor = 0.9;
-      break;
-    case "RECOVERY":
-      loadFactor = 0.3;
-      break;
+  if (!dailyMode) {
+    throw new Error("Error fatal: No se pudo determinar el modo diario.");
   }
-
-  // 3. HORARIO DEL USUARIO (USER STRUCTURE)
-  // Obtiene las horas de despertar y dormir para definir el día.
+  // 3. HORARIO DEL USUARIO (USER STRUCTURE) Y AJUSTE DE CARGA
   // =========================
   const { data: profile } = await supabase
     .from("user_schedule_profile")
@@ -94,30 +62,44 @@ if (sleepHours < 6) {
     .eq("user_id", userId)
     .single();
 
-  const wakeTime = profile?.wake_time || "08:00";
-  const sleepTime = profile?.sleep_time || "22:00";
+  const wakeTime = profile?.wake_time || "08:00:00";
+  const sleepTime = profile?.sleep_time || "22:00:00";
+  
+  let loadFactor = 0.75;
+  switch (dailyMode.mode) {
+    case "FULL_REST": loadFactor = 0.2; break;
+    case "LIGHT_PROGRESS": loadFactor = 0.5; break;
+    case "STRATEGIC": loadFactor = 0.75; break;
+    case "HIGH_PERFORMANCE": loadFactor = 0.9; break;
+    case "RECOVERY": loadFactor = 0.3; break;
+  }
+
   const wake = new Date(`${dateString}T${wakeTime}`);
   const sleep = new Date(`${dateString}T${sleepTime}`);
+  const sleepHours = (sleep.getTime() - wake.getTime()) / 3600000;
+
+  if (sleepHours < 6) {
+    loadFactor = loadFactor * 0.7;
+  }
+
   let blocks: Block[] = [];
+
   if (dailyMode.mode === "FULL_REST") {
-  blocks.push({
-    start: new Date(`${dateString}T10:00:00`),
-    end: new Date(`${dateString}T10:30:00`),
-    type: "STRUCTURAL",
-    label: "Movimiento ligero"
-  });
-
-  blocks.push({
-    start: new Date(`${dateString}T18:00:00`),
-    end: new Date(`${dateString}T18:30:00`),
-    type: "STRUCTURAL",
-    label: "Contacto familiar"
-  });
-}
-
+    blocks.push({
+      start: new Date(`${dateString}T10:00:00`),
+      end: new Date(`${dateString}T10:30:00`),
+      type: "STRUCTURAL",
+      label: "Movimiento ligero"
+    });
+    blocks.push({
+      start: new Date(`${dateString}T18:00:00`),
+      end: new Date(`${dateString}T18:30:00`),
+      type: "STRUCTURAL",
+      label: "Contacto familiar"
+    });
+  }
 
   // 4. BLOQUES ESTRUCTURALES (COMIDAS)
-  // Crea los bloques fijos para las comidas del día.
   // =========================
   const { data: nutrition } = await supabase
     .from("nutrition_profile")
@@ -126,9 +108,10 @@ if (sleepHours < 6) {
     .single();
 
   if (!nutrition || nutrition.eating_pattern === "NORMAL") {
-    const breakfast = nutrition?.breakfast_time || "08:00";
-    const lunch = nutrition?.lunch_time || "14:00";
-    const dinner = nutrition?.dinner_time || "21:00";
+    const breakfast = nutrition?.breakfast_time || "08:00:00";
+    const lunch = nutrition?.lunch_time || "14:00:00";
+    const dinner = nutrition?.dinner_time || "21:00:00";
+
     blocks.push({
       start: new Date(`${dateString}T${breakfast}`),
       end: new Date(new Date(`${dateString}T${breakfast}`).getTime() + 20 * 60000),
@@ -168,11 +151,9 @@ if (sleepHours < 6) {
     }
   }
 
-  // Ordena los bloques estructurales para poder encontrar huecos entre ellos.
   blocks.sort((a, b) => a.start.getTime() - b.start.getTime());
 
   // 5. EXTRACCIÓN DE TAREAS (TASK EXTRACTION)
-  // Obtiene todas las tareas pendientes del usuario, priorizadas.
   // =========================
   const { data: tasks } = await supabase
     .from("tasks")
@@ -199,7 +180,6 @@ if (sleepHours < 6) {
 
       if (potentialEnd.getTime() > gapEnd.getTime()) break;
 
-      // Control de capacidad y "castigo inteligente" para tareas aplazadas.
       if (usedStrategicMinutes + duration > maxStrategicMinutes) {
         const newDeferredCount = (task.deferred_count || 0) + 1;
         let newImportance = task.importance || 1;
@@ -220,58 +200,52 @@ if (sleepHours < 6) {
             forced_priority: forced,
           })
           .eq("id", task.id);
+
         taskIndex++;
         continue;
       }
 
-      // Si la tarea cabe, se crea el bloque.
       blocks.push({
         start: new Date(pointer),
         end: potentialEnd,
         type: "TASK",
         taskId: task.id,
       });
+
       pointer = potentialEnd;
       usedStrategicMinutes += duration;
       taskIndex++;
     }
   }
-  
-  // Rellena los huecos con tareas.
+
   if (blocks.length > 0) {
-    // Hueco 1: Desde que se despierta hasta el primer bloque.
-    if (wake < blocks[0].start) {
+    if (wake.getTime() < blocks[0].start.getTime()) {
       await insertTasksInGap(wake, blocks[0].start);
     }
-    // Huecos intermedios: Entre cada bloque estructural.
     for (let i = 0; i < blocks.length - 1; i++) {
       const currentEnd = blocks[i].end;
       const nextStart = blocks[i + 1].start;
-      if (currentEnd < nextStart) {
+      if (currentEnd.getTime() < nextStart.getTime()) {
         await insertTasksInGap(currentEnd, nextStart);
       }
     }
-    // Hueco final: Desde el último bloque hasta la hora de dormir.
     const lastBlockEnd = blocks[blocks.length - 1]?.end;
-    if (lastBlockEnd && lastBlockEnd < sleep) {
+    if (lastBlockEnd && lastBlockEnd.getTime() < sleep.getTime()) {
       await insertTasksInGap(lastBlockEnd, sleep);
     }
   } else {
-    // Si no hay bloques estructurales, todo el día es un gran hueco.
     await insertTasksInGap(wake, sleep);
   }
-
   // 7. GUARDADO DEL PLAN (SAVE PLAN)
-  // Borra el plan antiguo y guarda el nuevo en la base de datos.
   // =========================
-  let { data: dailyPlan } = await supabase
+  let { data: dailyPlan, error: findPlanError } = await supabase
     .from("daily_plans")
     .select("*")
     .eq("user_id", userId)
     .eq("date", dateString)
     .single();
 
-  if (!dailyPlan) {
+  if (findPlanError || !dailyPlan) {
     const { data: newPlan } = await supabase
       .from("daily_plans")
       .insert({
@@ -284,53 +258,56 @@ if (sleepHours < 6) {
       .single();
     dailyPlan = newPlan;
   }
-  
+
   if (!dailyPlan) {
     throw new Error("Error fatal: No se pudo crear o encontrar un plan diario.");
   }
 
-  // Borra los items del plan anterior para este día.
   await supabase.from("plan_items").delete().eq("daily_plan_id", dailyPlan.id);
-
-  // Ordena la lista final de bloques (comidas + tareas) cronológicamente.
   blocks.sort((a, b) => a.start.getTime() - b.start.getTime());
 
-  // Inserta todos los nuevos bloques en la tabla 'plan_items'.
-  for (const block of blocks) {
-    await supabase.from("plan_items").insert({
-      user_id: userId,
-      daily_plan_id: dailyPlan.id,
-      start_time: block.start.toISOString(),
-      end_time: block.end.toISOString(),
-      item_type: block.type,
-      task_id: block.taskId || null,
-      routine_id: null, // Campo reservado para el futuro
-      status: "PENDIENTE",
-    });
-  }
+  const planItemsToInsert = blocks.map(block => ({
+    user_id: userId,
+    daily_plan_id: dailyPlan!.id,
+    start_time: block.start.toISOString(),
+    end_time: block.end.toISOString(),
+    item_type: block.type,
+    task_id: block.taskId || null,
+    routine_id: null,
+    status: "PENDIENTE",
+    label: block.label || null
+  }));
 
+  if (planItemsToInsert.length > 0) {
+    const { error } = await supabase.from("plan_items").insert(planItemsToInsert);
+    if (error) {
+      console.error("Error al insertar plan_items:", error);
+      throw new Error("No se pudieron guardar los items del plan.");
+    }
+  }
+  
   // 8. RESULTADO
-  // Devuelve un resumen del plan generado.
   // =========================
+  const finalTotalAwakeMinutes = (sleep.getTime() - wake.getTime()) / 60000;
   const strategicSummary = `
 Modo del día: ${dailyMode.mode}
 Bloques totales: ${blocks.length}
-Carga real: ${Math.round((usedStrategicMinutes / totalAwakeMinutes) * 100)}%
+Carga real: ${Math.round((usedStrategicMinutes / finalTotalAwakeMinutes) * 100)}%
 `;
 
-await supabase
-  .from("daily_plans")
-  .update({
-    strategic_summary: strategicSummary
-  })
-  .eq("id", dailyPlan.id);
+  await supabase
+    .from("daily_plans")
+    .update({
+      strategic_summary: strategicSummary
+    })
+    .eq("id", dailyPlan.id);
 
   return {
     mode: dailyMode.mode,
     total_blocks: blocks.length,
     used_minutes: usedStrategicMinutes,
     real_load_percent: Math.round(
-      (usedStrategicMinutes / totalAwakeMinutes) * 100
+      (usedStrategicMinutes / finalTotalAwakeMinutes) * 100
     ),
     note: "Adaptive intelligent plan generated",
   };
