@@ -57,13 +57,16 @@ export async function planningAgent(userId: string) {
   let loadFactor = 0.75;
   switch (dailyMode.mode) {
       // ===== ENERGY ADJUSTMENT =====
-const sleepHours =
+const wake = new Date(`${dateString}T${wakeTime}`);
+const sleep = new Date(`${dateString}T${sleepTime}`);
+
 const sleepHours =
   (sleep.getTime() - wake.getTime()) / 3600000;
 
 if (sleepHours < 6) {
-
+  loadFactor = loadFactor * 0.7;
 }
+
 
     case "FULL_REST":
       loadFactor = 0.2;
