@@ -85,7 +85,52 @@ export async function planningAgent(userId: string) {
   // STRUCTURAL BLOCKS
   // =========================
 
-  const lunchStart = new Date(`${dateString}T14:00:00`);
+  if (!nutrition || nutrition.eating_pattern === "NORMAL") {
+  const breakfast = nutrition?.breakfast_time || "08:00";
+  const lunch = nutrition?.lunch_time || "14:00";
+  const dinner = nutrition?.dinner_time || "21:00";
+
+  blocks.push({
+    start: new Date(`${dateString}T${breakfast}`),
+    end: new Date(new Date(`${dateString}T${breakfast}`).getTime() + 20 * 60000),
+    type: "STRUCTURAL",
+    label: "Desayuno"
+  });
+
+  blocks.push({
+    start: new Date(`${dateString}T${lunch}`),
+    end: new Date(new Date(`${dateString}T${lunch}`).getTime() + 60 * 60000),
+    type: "STRUCTURAL",
+    label: "Comida"
+  });
+
+  blocks.push({
+    start: new Date(`${dateString}T${dinner}`),
+    end: new Date(new Date(`${dateString}T${dinner}`).getTime() + 40 * 60000),
+    type: "STRUCTURAL",
+    label: "Cena"
+  });
+}
+if (nutrition?.eating_pattern === "RAMADAN") {
+  if (nutrition.suhoor_time) {
+    blocks.push({
+      start: new Date(`${dateString}T${nutrition.suhoor_time}`),
+      end: new Date(new Date(`${dateString}T${nutrition.suhoor_time}`).getTime() + 30 * 60000),
+      type: "STRUCTURAL",
+      label: "Suhoor"
+    });
+  }
+
+  if (nutrition.iftar_time) {
+    blocks.push({
+      start: new Date(`${dateString}T${nutrition.iftar_time}`),
+      end: new Date(new Date(`${dateString}T${nutrition.iftar_time}`).getTime() + 60 * 60000),
+      type: "STRUCTURAL",
+      label: "Iftar"
+    });
+  }
+}
+
   const lunchEnd = new Date(lunchStart.getTime() + 60 * 60000);
 
   blocks.push({
