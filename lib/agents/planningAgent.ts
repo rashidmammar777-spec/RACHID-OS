@@ -38,7 +38,24 @@ export async function planningAgent(userId: string) {
   }
 
   // 3️⃣ Crear bloque en plan_items
-  await supabase.from("plan_items").insert({
+  const { error: planItemError } = await supabase.from("plan_items").insert({
+  user_id: userId,
+  daily_plan_id: dailyPlan.id,
+  start_time: `${today}T08:00:00`,
+  end_time: `${today}T09:00:00`,
+  item_type: "TASK",
+  task_id: topTask.id,
+  routine_id: null,
+  status: "PENDIENTE"
+});
+
+if (planItemError) {
+  return {
+    error: "Plan item insert failed",
+    details: planItemError.message
+  };
+}
+
     user_id: userId,
     daily_plan_id: dailyPlan.id,
     start_time: `${today}T08:00:00`,
