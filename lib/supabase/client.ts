@@ -1,11 +1,8 @@
-import { createBrowserClient } from '@supabase/ssr';
+import { createBrowserClient as supabaseCreateBrowserClient } from '@supabase/ssr';
 
-export function createBrowserClientWrapper() {
-  return createBrowserClient(
+export function createBrowserClient() {
+  return supabaseCreateBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 }
-
-// 🔥 Exportamos también con el nombre antiguo para no romper frontend
-export const createBrowserClient = createBrowserClientWrapper;
