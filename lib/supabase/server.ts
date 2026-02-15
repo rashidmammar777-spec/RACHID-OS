@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
-export async function createClient() {
+export async function createServerClient() {
   const cookieStore = await cookies()
   
   return createServerClient(
@@ -17,9 +17,7 @@ export async function createClient() {
             cookiesToSet.forEach(({ name, value, options }) =>
               cookieStore.set(name, value, options)
             )
-          } catch {
-            // El middleware se encarga de refrescar la sesión
-          }
+          } catch {}
         },
       },
     }
