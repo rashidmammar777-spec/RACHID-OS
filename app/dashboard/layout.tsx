@@ -3,8 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { createBrowserClient } from '@/lib/supabase/client'
-const supabase = createBrowserClient()
+import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
@@ -48,7 +47,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
-  const supabase = createBrowserClient();
+  const supabase = createClient();
 
   useEffect(() => {
     const getUser = async () => {
