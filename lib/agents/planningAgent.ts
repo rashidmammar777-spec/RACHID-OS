@@ -1,4 +1,5 @@
 // const supabase = createServiceClient();
+
 import { createServiceClient } from "@/lib/supabase/service";
 
 // Definir el tipo de dato para un bloque de planificación
@@ -21,7 +22,8 @@ type Block = {
 export async function planningAgent(userId: string) {
   // 1. INICIALIZACIÓN
   // =========================
-  const supabase = createClient();
+  const supabase = createServiceClient();
+
   const today = new Date();
   const dateString = today.toISOString().split("T")[0];
   const dayOfWeek = today.getDay();
