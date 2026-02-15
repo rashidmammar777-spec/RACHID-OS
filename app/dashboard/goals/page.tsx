@@ -1,14 +1,10 @@
 'use client';
 
-export const dynamic = 'force-dynamic';
-
 import { useState, useEffect } from 'react';
-import { createBrowserClient } from '@/lib/supabase/client'
-const supabase = createBrowserClient()
+import { createClient } from '@/lib/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-// import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Target, Plus, TrendingUp } from 'lucide-react';
 import { format } from 'date-fns';
@@ -30,7 +26,7 @@ interface Goal {
 export default function GoalsPage() {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(true);
-  const supabase = createBrowserClient();
+  const supabase = createClient();
 
   useEffect(() => {
     loadGoals();
