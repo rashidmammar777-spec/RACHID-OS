@@ -1,28 +1,34 @@
 import { NextResponse } from "next/server";
-import { createServerClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
+
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const supabase = await createServerClient();
+  try {
+    const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-  if (!user) {
-    return NextResponse.json({ error: "Not authenticated" });
+    if (!user) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
+
+    const { error } = await supabase.from("tasks").insert({
+      user_id: user.id,
+      content: "Test task",
+      status: "INBOX",
+      importance: 3,
+      urgency: 3
+    });
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ status: "Task created" });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
-
-  const { error } = await supabase.from("tasks").insert({
-    user_id: user.id,
-    content: "Test task",
-    status: "INBOX",
-    importance: 3,
-    urgency: 3
-  });
-
-  if (error) {
-    return NextResponse.json({ error: error.message });
-  }
-
-  return NextResponse.json({ status: "Task created" });
 }
